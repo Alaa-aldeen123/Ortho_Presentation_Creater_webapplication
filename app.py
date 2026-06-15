@@ -11,7 +11,8 @@ from pptx.util import Inches
 from ultralytics import YOLO
 import torch
 
-
+st.title("Is this working?")
+st.write("If you see this, the app is running fine!")
 # -------------------------------------------------------------------
 # Helper: resource_path()
 # Returns the absolute path to a resource whether running as a script
