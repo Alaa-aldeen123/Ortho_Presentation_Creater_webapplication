@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dental Image Processor</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    .category {
+      margin-top: 30px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container mt-5">
+    <h2 class="mb-4">Dental Image Processor</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-warning">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="patient_name">Patient's Name</label>
+        <input type="text" class="form-control" id="patient_name" name="patient_name" required>
+      </div>
+
+      <!-- Pre-Personal Images -->
+      <div class="category">
+        <h4>Pre-Personal Images</h4>
+        <div class="form-group">
+          <label for="pre_personal_front">Pre-Personal Front</label>
+          <input type="file" class="form-control-file" id="pre_personal_front" name="pre_personal_front" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_personal_smile">Pre-Personal Smile</label>
+          <input type="file" class="form-control-file" id="pre_personal_smile" name="pre_personal_smile" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_personal_oblique">Pre-Personal Oblique</label>
+          <input type="file" class="form-control-file" id="pre_personal_oblique" name="pre_personal_oblique" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_personal_profile">Pre-Personal Profile</label>
+          <input type="file" class="form-control-file" id="pre_personal_profile" name="pre_personal_profile" accept="image/*">
+        </div>
+      </div>
+
+      <!-- Pre-Arch Images -->
+      <div class="category">
+        <h4>Pre-Arch Images</h4>
+        <div class="form-group">
+          <label for="pre_arch_right">Pre-Arch Right</label>
+          <input type="file" class="form-control-file" id="pre_arch_right" name="pre_arch_right" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_arch_front">Pre-Arch Front</label>
+          <input type="file" class="form-control-file" id="pre_arch_front" name="pre_arch_front" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_arch_left">Pre-Arch Left</label>
+          <input type="file" class="form-control-file" id="pre_arch_left" name="pre_arch_left" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_arch_upper">Pre-Arch Upper</label>
+          <input type="file" class="form-control-file" id="pre_arch_upper" name="pre_arch_upper" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_arch_lower">Pre-Arch Lower</label>
+          <input type="file" class="form-control-file" id="pre_arch_lower" name="pre_arch_lower" accept="image/*">
+        </div>
+      </div>
+
+      <!-- Pre-Cast Images -->
+      <div class="category">
+        <h4>Pre-Cast Images</h4>
+        <div class="form-group">
+          <label for="pre_cast_right">Pre-Cast Right</label>
+          <input type="file" class="form-control-file" id="pre_cast_right" name="pre_cast_right" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_cast_front">Pre-Cast Front</label>
+          <input type="file" class="form-control-file" id="pre_cast_front" name="pre_cast_front" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_cast_left">Pre-Cast Left</label>
+          <input type="file" class="form-control-file" id="pre_cast_left" name="pre_cast_left" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_cast_upper">Pre-Cast Upper</label>
+          <input type="file" class="form-control-file" id="pre_cast_upper" name="pre_cast_upper" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre_cast_lower">Pre-Cast Lower</label>
+          <input type="file" class="form-control-file" id="pre_cast_lower" name="pre_cast_lower" accept="image/*">
+        </div>
+      </div>
+
+      <!-- Pre-X-rays Images -->
+      <div class="category">
+        <h4>Pre-X-rays Images</h4>
+        <div class="form-group">
+          <label for="pre-Panoramic X-Ray">Pre-Panoramic X-Ray</label>
+          <input type="file" class="form-control-file" id="pre-Panoramic X-Ray" name="pre-Panoramic X-Ray" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre-Cephalometric X-Ray">Pre-Cephalometric X-Ray</label>
+          <input type="file" class="form-control-file" id="pre-Cephalometric X-Ray" name="pre-Cephalometric X-Ray" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="pre-Cephalometric X-Ray Tracing">Pre-Cephalometric X-Ray Tracing</label>
+          <input type="file" class="form-control-file" id="pre-Cephalometric X-Ray Tracing" name="pre-Cephalometric X-Ray Tracing" accept="image/*">
+        </div>
+      </div>
+
+      <!-- Post-Personal Images -->
+      <div class="category">
+        <h4>Post-Personal Images</h4>
+        <div class="form-group">
+          <label for="post_personal_front">Post-Personal Front</label>
+          <input type="file" class="form-control-file" id="post_personal_front" name="post_personal_front" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_personal_smile">Post-Personal Smile</label>
+          <input type="file" class="form-control-file" id="post_personal_smile" name="post_personal_smile" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_personal_oblique">Post-Personal Oblique</label>
+          <input type="file" class="form-control-file" id="post_personal_oblique" name="post_personal_oblique" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_personal_profile">Post-Personal Profile</label>
+          <input type="file" class="form-control-file" id="post_personal_profile" name="post_personal_profile" accept="image/*">
+        </div>
+      </div>
+
+      <!-- Post-Arch Images -->
+      <div class="category">
+        <h4>Post-Arch Images</h4>
+        <div class="form-group">
+          <label for="post_arch_right">Post-Arch Right</label>
+          <input type="file" class="form-control-file" id="post_arch_right" name="post_arch_right" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_arch_front">Post-Arch Front</label>
+          <input type="file" class="form-control-file" id="post_arch_front" name="post_arch_front" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_arch_left">Post-Arch Left</label>
+          <input type="file" class="form-control-file" id="post_arch_left" name="post_arch_left" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_arch_upper">Post-Arch Upper</label>
+          <input type="file" class="form-control-file" id="post_arch_upper" name="post_arch_upper" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_arch_lower">Post-Arch Lower</label>
+          <input type="file" class="form-control-file" id="post_arch_lower" name="post_arch_lower" accept="image/*">
+        </div>
+      </div>
+
+      <!-- Post-Cast Images -->
+      <div class="category">
+        <h4>Post-Cast Images</h4>
+        <div class="form-group">
+          <label for="post_cast_right">Post-Cast Right</label>
+          <input type="file" class="form-control-file" id="post_cast_right" name="post_cast_right" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_cast_front">Post-Cast Front</label>
+          <input type="file" class="form-control-file" id="post_cast_front" name="post_cast_front" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_cast_left">Post-Cast Left</label>
+          <input type="file" class="form-control-file" id="post_cast_left" name="post_cast_left" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_cast_upper">Post-Cast Upper</label>
+          <input type="file" class="form-control-file" id="post_cast_upper" name="post_cast_upper" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post_cast_lower">Post-Cast Lower</label>
+          <input type="file" class="form-control-file" id="post_cast_lower" name="post_cast_lower" accept="image/*">
+        </div>
+      </div>
+
+      <!-- Post-X-rays Images -->
+      <div class="category">
+        <h4>Post-X-rays Images</h4>
+        <div class="form-group">
+          <label for="post-Panoramic X-Ray">Post-Panoramic X-Ray</label>
+          <input type="file" class="form-control-file" id="post-Panoramic X-Ray" name="post-Panoramic X-Ray" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post-Cephalometric X-Ray">Post-Cephalometric X-Ray</label>
+          <input type="file" class="form-control-file" id="post-Cephalometric X-Ray" name="post-Cephalometric X-Ray" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label for="post-Cephalometric X-Ray Tracing">Post-Cephalometric X-Ray Tracing</label>
+          <input type="file" class="form-control-file" id="post-Cephalometric X-Ray Tracing" name="post-Cephalometric X-Ray Tracing" accept="image/*">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary mt-3">Process Images</button>
+    </form>
+  </div>
+</body>
+</html>
