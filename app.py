@@ -10,6 +10,7 @@ from pptx import Presentation
 from pptx.util import Inches
 from ultralytics import YOLO
 import torch
+import opencv-python-headless
 
 
 # -------------------------------------------------------------------
