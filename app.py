@@ -84,11 +84,11 @@ def remove_background(image_name):
         except Exception as e:
             st.write(f"Error processing {image_name}: {e}")
 
-
+face_detector_pb = r'opencv_face_detector_uint8.pb'
+face_detector_pbtxt = r'opencv_face_detector.pbtxt'
 def crop_personal(image_name, left_padding=0.2, right_padding=0.2, above_padding=0.3, bottom_padding=0.1):
     """Crops personal images using face detection."""
-    face_detector_pb = r'D:\AI cours by Hasoob\Real_Projects\Ortho_Presentation_Creater_desktop\.venv\Lib\site-packages\cv2\data\opencv_face_detector_uint8.pb'
-    face_detector_pbtxt = r'D:\AI cours by Hasoob\Real_Projects\Ortho_Presentation_Creater_desktop\.venv\Lib\site-packages\cv2\data\opencv_face_detector.pbtxt'
+    
 
     net = cv2.dnn.readNetFromTensorflow(face_detector_pb, face_detector_pbtxt)
     image_path = os.path.join(folder_path, image_name)
