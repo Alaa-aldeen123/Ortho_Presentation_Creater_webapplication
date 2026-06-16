@@ -1,9 +1,9 @@
 streamlit>=1.44.1
 opencv-python-headless>=4.10.0.84
-numpy>=2.1.0
+numpy>=2.1.0,<2.2
 Pillow>=10.4.0
 rembg>=2.0.76
 python-pptx>=0.6.21
 ultralytics>=8.3.0
-torch
-torchvision
+torch==2.0.1 --index-url https://download.pytorch.org/whl/cpu
+torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cpu
