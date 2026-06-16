@@ -1,8 +1,8 @@
 streamlit>=1.44.1
 opencv-python-headless>=4.10.0.84
-numpy>=2.0.0,<2.2
+numpy>=1.24.0,<2.0
 Pillow>=10.4.0
-rembg>=2.0.76
+rembg>=2.0.50
 python-pptx>=0.6.21
 ultralytics>=8.3.0
 torch==2.0.1
