@@ -1,0 +1,17 @@
+[client]
+maxUploadSize = 200
+
+[server]
+maxUploadSize = 200
+enableXsrfProtection = false
+enableCORS = false
+
+[logger]
+level = "warning"
+
+[theme]
+primaryColor = "#007BFF"
+backgroundColor = "#F8F9FA"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#2C3E50"
+font = "sans serif"
