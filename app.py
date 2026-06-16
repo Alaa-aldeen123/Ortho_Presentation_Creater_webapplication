@@ -11,8 +11,56 @@ from pptx.util import Inches
 from ultralytics import YOLO
 import torch
 
-st.title("Is this working?")
-st.write("If you see this, the app is running fine!")
+# Set PyTorch to use CPU to avoid memory issues in Streamlit Cloud
+torch.set_num_threads(1)
+if torch.cuda.is_available():
+    torch.cuda.set_per_process_memory_fraction(0.1)
+
+st.set_page_config(page_title="Orthodontic Case Presentation", page_icon="🦷", layout="wide")
+
+# Custom CSS for Background Color, File Uploader modifications, and Buttons
+st.markdown("""
+    <style>
+    /* Hide the "Limit 200MB per file" text natively injected by Streamlit */
+    [data-testid="stFileUploadDropzone"] small {
+        display: none !important;
+    }
+
+    /* Styling for the Process button */
+    div.stButton > button:first-child {
+        background-color: #007BFF;
+        color: white;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-size: 18px;
+        font-weight: 600;
+        border: none;
+        transition: background-color 0.3s ease;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+
+    /* Styling for the Download button */
+    div.stDownloadButton > button:first-child {
+        background-color: #28A745;
+        color: white;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-size: 18px;
+        font-weight: 600;
+        border: none;
+        width: 100%;
+        transition: background-color 0.3s ease;
+    }
+    div.stDownloadButton > button:first-child:hover {
+        background-color: #218838;
+        border-color: #218838;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # -------------------------------------------------------------------
 # Helper: resource_path()
 # Returns the absolute path to a resource whether running as a script
@@ -31,8 +79,12 @@ pptx_resource = resource_path("main.pptx")
 model_resource = resource_path("best.pt")
 
 # Load the PPTX template into memory using the bundled resource.
-with open(pptx_resource, "rb") as file:
-    pptx_data = file.read()
+try:
+    with open(pptx_resource, "rb") as file:
+        pptx_data = file.read()
+except FileNotFoundError:
+    st.error(f"⚠️ Template file not found: {pptx_resource}")
+    st.stop()
 
 # Global variables that the processing functions rely on.
 patient_name = ""
@@ -127,18 +179,21 @@ def crop_personal(image_name, left_padding=0.2, right_padding=0.2, above_padding
 def crop_arch(image_name):
     """Crops arch images using a YOLO model."""
     image_path = os.path.join(folder_path, image_name)
-    model = YOLO(model_resource)
-    image = cv2.imread(image_path)
-    if image is None:
-        st.write(f"Error: Unable to read image {image_name}")
-        return
-    results = model(image_path, verbose=False)
-    if results and results[0].boxes.xyxy.shape[0] > 0:
-        x1, y1, x2, y2 = map(int, results[0].boxes.xyxy[0])
-        cropped_object = image[y1:y2, x1:x2]
-        cv2.imwrite(image_path, cropped_object)
-    else:
-        pass
+    try:
+        model = YOLO(model_resource)
+        image = cv2.imread(image_path)
+        if image is None:
+            st.write(f"Error: Unable to read image {image_name}")
+            return
+        results = model(image_path, verbose=False)
+        if results and results[0].boxes.xyxy.shape[0] > 0:
+            x1, y1, x2, y2 = map(int, results[0].boxes.xyxy[0])
+            cropped_object = image[y1:y2, x1:x2]
+            cv2.imwrite(image_path, cropped_object)
+        else:
+            pass
+    except Exception as e:
+        st.warning(f"Could not process arch image {image_name}: {e}")
 
 
 def resize_image(image_name, max_width=None, max_height=None, file_prefix=''):
@@ -401,60 +456,14 @@ def run_all_processing():
 
 
 # -------------------------------------------------------------------
-# Streamlit UI
-# -------------------------------------------------------------------
-
-st.set_page_config(page_title="Orthodontic Case Presentation", page_icon="🦷", layout="wide")
-
-# Custom CSS for Background Color, File Uploader modifications, and Buttons
-st.markdown("""
-    <style>
-    /* Hide the "Limit 200MB per file" text natively injected by Streamlit */
-    [data-testid="stFileUploadDropzone"] small {
-        display: none !important;
-    }
-
-    /* Styling for the Process button */
-    div.stButton > button:first-child {
-        background-color: #007BFF;
-        color: white;
-        border-radius: 8px;
-        padding: 10px 24px;
-        font-size: 18px;
-        font-weight: 600;
-        border: none;
-        transition: background-color 0.3s ease;
-    }
-    div.stButton > button:first-child:hover {
-        background-color: #0056b3;
-        border-color: #0056b3;
-    }
-
-    /* Styling for the Download button */
-    div.stDownloadButton > button:first-child {
-        background-color: #28A745;
-        color: white;
-        border-radius: 8px;
-        padding: 10px 24px;
-        font-size: 18px;
-        font-weight: 600;
-        border: none;
-        width: 100%;
-        transition: background-color 0.3s ease;
-    }
-    div.stDownloadButton > button:first-child:hover {
-        background-color: #218838;
-        border-color: #218838;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
 # Sidebar: Clinic Logo and Instructions
 
 with st.sidebar:
     # Adding your specific clinic logo
-    st.image("logo_colored_with_words.png", use_container_width=True)
+    try:
+        st.image("logo_colored_with_words.png", use_container_width=True)
+    except:
+        st.info("🏥 Orthodontic Case Presentation")
 
     st.markdown("---")
     st.markdown("### 💡 Instructions")
@@ -607,6 +616,7 @@ if process_clicked:
             except Exception as e:
                 progress_bar.progress(0)
                 status.update(label=f"Error during processing: {str(e)}", state="error", expanded=True)
+                st.error(f"Processing failed: {str(e)}")
 
         # Step 3: Zip the output folder for download
         zip_buffer = io.BytesIO()
