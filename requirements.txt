@@ -1,6 +1,6 @@
 streamlit>=1.44.1
 opencv-python-headless>=4.10.0.84
-numpy>=1.24.0,<2.0
+numpy==1.26.4
 Pillow>=10.4.0
 rembg>=2.0.50
 python-pptx>=0.6.21
