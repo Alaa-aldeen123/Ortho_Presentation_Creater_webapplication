@@ -1,6 +1,7 @@
 import os
 import sys
 import io
+import gc
 import cv2
 import numpy as np
 import streamlit as st
@@ -25,7 +26,6 @@ st.markdown("""
     [data-testid="stFileUploadDropzone"] small {
         display: none !important;
     }
-
     /* Styling for the Process button */
     div.stButton > button:first-child {
         background-color: #007BFF;
@@ -41,7 +41,6 @@ st.markdown("""
         background-color: #0056b3;
         border-color: #0056b3;
     }
-
     /* Styling for the Download button */
     div.stDownloadButton > button:first-child {
         background-color: #28A745;
@@ -72,11 +71,42 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
+# -------------------------------------------------------------------
+# ✅ FIX #1 & #2: Load heavy models ONCE with @st.cache_resource.
+# This prevents loading YOLO / face-detector dozens of times and
+# keeps memory within Streamlit Cloud's 1 GB limit.
+
+@st.cache_resource
+def load_yolo_model(model_path):
+    """Loads the YOLO model once and reuses it across all calls."""
+    return YOLO(model_path)
+
+@st.cache_resource
+def load_face_detector(pb_path, pbtxt_path):
+    """Loads the OpenCV DNN face detector once."""
+    return cv2.dnn.readNetFromTensorflow(pb_path, pbtxt_path)
 
 # -------------------------------------------------------------------
 # Use resource_path to get the correct paths for the resource files
 pptx_resource = resource_path("main.pptx")
 model_resource = resource_path("best.pt")
+face_detector_pb = resource_path("opencv_face_detector_uint8.pb")
+face_detector_pbtxt = resource_path("opencv_face_detector.pbtxt")
+
+# ✅ FIX #3: Verify all resource files exist at startup with clear errors.
+_missing = []
+for _label, _path in [("PowerPoint template", pptx_resource),
+                      ("YOLO model", model_resource),
+                      ("Face detector model", face_detector_pb),
+                      ("Face detector config", face_detector_pbtxt)]:
+    if not os.path.isfile(_path):
+        _missing.append(f"• {_label}: `{_path}`")
+
+if _missing:
+    st.error("⚠️ **Missing resource files.** The following files were not found in the repository:\n\n"
+             + "\n".join(_missing)
+             + "\n\nMake sure they are committed to your GitHub repo **root** (next to `app.py`).")
+    st.stop()
 
 # Load the PPTX template into memory using the bundled resource.
 try:
@@ -90,10 +120,8 @@ except FileNotFoundError:
 patient_name = ""
 folder_path = ""
 
-
 # -------------------------------------------------------------------
 # Processing Functions
-# [UNCHANGED LOGIC]
 
 def create_new_presentation():
     """Create a new presentation based on the stored template data."""
@@ -104,9 +132,6 @@ def create_new_presentation():
         pptx_stream = io.BytesIO(pptx_data)
         new_presentation = Presentation(pptx_stream)
         new_presentation.save(pptx_path_local)
-    else:
-        pass
-
 
 def copy_and_rename_convert_images():
     """
@@ -123,7 +148,6 @@ def copy_and_rename_convert_images():
             except Exception as e:
                 st.write(f"Error processing {image_path}: {e}")
 
-
 def remove_background(image_name):
     """Removes the background from an image and overwrites the file."""
     image_path = os.path.join(folder_path, image_name)
@@ -132,18 +156,19 @@ def remove_background(image_name):
             input_image = Image.open(image_path)
             output_image = remove(input_image)
             white_background = Image.new("RGB", output_image.size, (255, 255, 255))
-            white_background.paste(output_image, mask=output_image.split()[3])
+            # Guard against images without an alpha channel.
+            if output_image.mode == 'RGBA':
+                white_background.paste(output_image, mask=output_image.split()[3])
+            else:
+                white_background.paste(output_image)
             white_background.save(image_path)
         except Exception as e:
             st.write(f"Error processing {image_name}: {e}")
 
-face_detector_pb = r'opencv_face_detector_uint8.pb'
-face_detector_pbtxt = r'opencv_face_detector.pbtxt'
 def crop_personal(image_name, left_padding=0.2, right_padding=0.2, above_padding=0.3, bottom_padding=0.1):
     """Crops personal images using face detection."""
-    
-
-    net = cv2.dnn.readNetFromTensorflow(face_detector_pb, face_detector_pbtxt)
+    # ✅ FIX #2: Use the cached face detector instead of reloading each call.
+    net = load_face_detector(face_detector_pb, face_detector_pbtxt)
     image_path = os.path.join(folder_path, image_name)
     img = cv2.imread(image_path)
     if img is None:
@@ -175,12 +200,12 @@ def crop_personal(image_name, left_padding=0.2, right_padding=0.2, above_padding
     else:
         return image_path
 
-
 def crop_arch(image_name):
     """Crops arch images using a YOLO model."""
     image_path = os.path.join(folder_path, image_name)
     try:
-        model = YOLO(model_resource)
+        # ✅ FIX #1: Use the cached YOLO model instead of reloading each call.
+        model = load_yolo_model(model_resource)
         image = cv2.imread(image_path)
         if image is None:
             st.write(f"Error: Unable to read image {image_name}")
@@ -194,7 +219,6 @@ def crop_arch(image_name):
             pass
     except Exception as e:
         st.warning(f"Could not process arch image {image_name}: {e}")
-
 
 def resize_image(image_name, max_width=None, max_height=None, file_prefix=''):
     """Resizes an image to given dimensions and saves a new version with an optional prefix."""
@@ -220,7 +244,6 @@ def resize_image(image_name, max_width=None, max_height=None, file_prefix=''):
     temp_path = os.path.join(folder_path, new_file_name)
     resized_img.save(temp_path)
     return new_file_name
-
 
 def insert_image(slide_index, image_name, left=None, bottom=None, right=None, top=None):
     """Inserts an image into a slide of the PowerPoint presentation."""
@@ -263,17 +286,14 @@ def insert_image(slide_index, image_name, left=None, bottom=None, right=None, to
                              height=Inches(height_in_inches))
     ppt.save(pptx_path_local)
 
-
 def run_all_processing():
     """Runs the complete processing pipeline."""
     copy_and_rename_convert_images()
-
     for img in ['pre_personal_front.jpg', 'pre_personal_smile.jpg', 'pre_personal_oblique.jpg',
                 'pre_personal_profile.jpg', 'post_personal_front.jpg', 'post_personal_smile.jpg',
                 'post_personal_oblique.jpg', 'post_personal_profile.jpg']:
         if os.path.exists(os.path.join(folder_path, img)):
             remove_background(img)
-
     for img in ['pre_personal_front.jpg', 'pre_personal_smile.jpg', 'post_personal_front.jpg',
                 'post_personal_smile.jpg']:
         if os.path.exists(os.path.join(folder_path, img)):
@@ -284,13 +304,11 @@ def run_all_processing():
     for img in ['pre_personal_profile.jpg', 'post_personal_profile.jpg']:
         if os.path.exists(os.path.join(folder_path, img)):
             crop_personal(img, left_padding=1)
-
     for img in ['pre_arch_right.jpg', 'pre_arch_front.jpg', 'pre_arch_left.jpg', 'pre_arch_upper.jpg',
                 'pre_arch_lower.jpg', 'post_arch_right.jpg', 'post_arch_front.jpg', 'post_arch_left.jpg',
                 'post_arch_upper.jpg', 'post_arch_lower.jpg']:
         if os.path.exists(os.path.join(folder_path, img)):
             crop_arch(img)
-
     for img in ['pre_personal_front.jpg', 'pre_personal_smile.jpg', 'pre_personal_oblique.jpg',
                 'pre_personal_profile.jpg', 'post_personal_front.jpg', 'post_personal_smile.jpg',
                 'post_personal_oblique.jpg', 'post_personal_profile.jpg']:
@@ -306,7 +324,6 @@ def run_all_processing():
         if os.path.exists(os.path.join(folder_path, img)):
             resize_image(img, 3.74, 2.76)
             resize_image(img, 2.69, 1.95, 'g_')
-
     for key in ["pre_cast_right", "pre_cast_front", "pre_cast_left"]:
         filename = f"{key}.jpg"
         if os.path.exists(os.path.join(folder_path, filename)):
@@ -339,7 +356,6 @@ def run_all_processing():
         filename = f"{key}.jpg"
         if os.path.exists(os.path.join(folder_path, filename)):
             resize_image(filename, 5.97, 4.96)
-
     if os.path.exists(os.path.join(folder_path, 'pre_personal_front.jpg')):
         insert_image(2, 'pre_personal_front.jpg', 0.59, 1.44)
     if os.path.exists(os.path.join(folder_path, 'pre_personal_smile.jpg')):
@@ -356,7 +372,6 @@ def run_all_processing():
         insert_image(9, 'post_personal_oblique.jpg', 6.72, 1.44)
     if os.path.exists(os.path.join(folder_path, 'post_personal_profile.jpg')):
         insert_image(9, 'post_personal_profile.jpg', 9.79, 1.44)
-
     if os.path.exists(os.path.join(folder_path, 'pre_arch_right.jpg')):
         insert_image(3, 'pre_arch_right.jpg', 1.09, top=1.7)
     if os.path.exists(os.path.join(folder_path, 'pre_arch_front.jpg')):
@@ -377,7 +392,6 @@ def run_all_processing():
         insert_image(10, 'post_arch_upper.jpg', 2.79, top=4.05)
     if os.path.exists(os.path.join(folder_path, 'post_arch_lower.jpg')):
         insert_image(10, 'post_arch_lower.jpg', 6.74, top=4.05)
-
     if os.path.exists(os.path.join(folder_path, 'g_pre_personal_front.jpg')):
         insert_image(4, 'g_pre_personal_front.jpg', 0.9, 4.2)
     if os.path.exists(os.path.join(folder_path, 'g_pre_personal_smile.jpg')):
@@ -386,7 +400,6 @@ def run_all_processing():
         insert_image(4, 'g_pre_personal_oblique.jpg', 7.03, 4.2)
     if os.path.exists(os.path.join(folder_path, 'g_pre_personal_profile.jpg')):
         insert_image(4, 'g_pre_personal_profile.jpg', 10.09, 4.2)
-
     if os.path.exists(os.path.join(folder_path, 'g_post_personal_front.jpg')):
         insert_image(11, 'g_post_personal_front.jpg', 0.9, 4.2)
     if os.path.exists(os.path.join(folder_path, 'g_post_personal_smile.jpg')):
@@ -395,7 +408,6 @@ def run_all_processing():
         insert_image(11, 'g_post_personal_oblique.jpg', 7.03, 4.2)
     if os.path.exists(os.path.join(folder_path, 'g_post_personal_profile.jpg')):
         insert_image(11, 'g_post_personal_profile.jpg', 10.09, 4.2)
-
     if os.path.exists(os.path.join(folder_path, 'g_pre_arch_right.jpg')):
         insert_image(4, 'g_pre_arch_right.jpg', 2.01, top=3.46)
     if os.path.exists(os.path.join(folder_path, 'g_pre_arch_front.jpg')):
@@ -406,7 +418,6 @@ def run_all_processing():
         insert_image(4, 'g_pre_arch_upper.jpg', 3.42, top=5.35)
     if os.path.exists(os.path.join(folder_path, 'g_pre_arch_lower.jpg')):
         insert_image(4, 'g_pre_arch_lower.jpg', 6.44, top=5.35)
-
     if os.path.exists(os.path.join(folder_path, 'g_post_arch_right.jpg')):
         insert_image(11, 'g_post_arch_right.jpg', 2.01, top=3.46)
     if os.path.exists(os.path.join(folder_path, 'g_post_arch_front.jpg')):
@@ -417,7 +428,6 @@ def run_all_processing():
         insert_image(11, 'g_post_arch_upper.jpg', 3.42, top=5.35)
     if os.path.exists(os.path.join(folder_path, 'g_post_arch_lower.jpg')):
         insert_image(11, 'g_post_arch_lower.jpg', 6.44, top=5.35)
-
     if os.path.exists(os.path.join(folder_path, 'pre_cast_right.jpg')):
         insert_image(5, 'pre_cast_right.jpg', 1.09, top=1.7)
     if os.path.exists(os.path.join(folder_path, 'pre_cast_front.jpg')):
@@ -428,7 +438,6 @@ def run_all_processing():
         insert_image(5, 'pre_cast_upper.jpg', 2.8, top=4.05)
     if os.path.exists(os.path.join(folder_path, 'pre_cast_lower.jpg')):
         insert_image(5, 'pre_cast_lower.jpg', 6.74, top=4.05)
-
     if os.path.exists(os.path.join(folder_path, 'post_cast_right.jpg')):
         insert_image(12, 'post_cast_right.jpg', 1.09, top=1.7)
     if os.path.exists(os.path.join(folder_path, 'post_cast_front.jpg')):
@@ -439,14 +448,12 @@ def run_all_processing():
         insert_image(12, 'post_cast_upper.jpg', 2.8, top=4.05)
     if os.path.exists(os.path.join(folder_path, 'post_cast_lower.jpg')):
         insert_image(12, 'post_cast_lower.jpg', 6.74, top=4.05)
-
     if os.path.exists(os.path.join(folder_path, 'pre-Panoramic X-Ray.jpg')):
         insert_image(6, 'pre-Panoramic X-Ray.jpg', left=1.92, top=1.33)
     if os.path.exists(os.path.join(folder_path, 'pre-Cephalometric X-Ray.jpg')):
         insert_image(7, 'pre-Cephalometric X-Ray.jpg', left=0.55, top=1.5)
     if os.path.exists(os.path.join(folder_path, 'pre-Cephalometric X-Ray Tracing.jpg')):
         insert_image(7, 'pre-Cephalometric X-Ray Tracing.jpg', left=6.81, top=1.5)
-
     if os.path.exists(os.path.join(folder_path, 'post-Panoramic X-Ray.jpg')):
         insert_image(13, 'post-Panoramic X-Ray.jpg', left=1.92, top=1.33)
     if os.path.exists(os.path.join(folder_path, 'post-Cephalometric X-Ray.jpg')):
@@ -454,17 +461,14 @@ def run_all_processing():
     if os.path.exists(os.path.join(folder_path, 'post-Cephalometric X-Ray Tracing.jpg')):
         insert_image(14, 'post-Cephalometric X-Ray Tracing.jpg', left=6.81, top=1.5)
 
-
 # -------------------------------------------------------------------
 # Sidebar: Clinic Logo and Instructions
-
 with st.sidebar:
     # Adding your specific clinic logo
     try:
         st.image("logo_colored_with_words.png", use_container_width=True)
     except:
         st.info("🏥 Orthodontic Case Presentation")
-
     st.markdown("---")
     st.markdown("### 💡 Instructions")
     st.info(
@@ -478,7 +482,6 @@ with st.sidebar:
 
 # -------------------------------------------------------------------
 # Main Title and Description
-
 st.markdown("<h1 style='text-align: center; color: #2C3E50;'>🦷 Orthodontic Case Presentation</h1>",
             unsafe_allow_html=True)
 st.markdown(
@@ -490,7 +493,6 @@ st.markdown(
 )
 st.markdown("---")
 
-
 # -------------------------------------------------------------------
 # Patient Details section moved out of sidebar
 st.markdown("### 📋 Patient Details")
@@ -499,7 +501,6 @@ st.markdown("<br>", unsafe_allow_html=True)  # Adding a bit of spacing
 
 # -------------------------------------------------------------------
 # Tabs for Image Uploads
-
 categories = {
     "Pre-Personal Images": ["pre_personal_front", "pre_personal_smile", "pre_personal_oblique", "pre_personal_profile"],
     "Pre-Arch Images": ["pre_arch_right", "pre_arch_front", "pre_arch_left", "pre_arch_upper", "pre_arch_lower"],
@@ -513,13 +514,11 @@ categories = {
 }
 
 uploaded_files = {}
-
 tab1, tab2 = st.tabs(["⏳ Pre-Treatment Images", "✨ Post-Treatment Images"])
 
 for cat, keys in categories.items():
     # Determine the target tab based on the category name
     target_tab = tab1 if "Pre" in cat else tab2
-
     with target_tab:
         with st.expander(f"📁 {cat}", expanded=False):
             cols = st.columns(2)
@@ -535,12 +534,10 @@ for cat, keys in categories.items():
 # -------------------------------------------------------------------
 # Define a global dictionary to store image paths from uploaded files.
 uploaded_image_paths = {}
-
 st.markdown("---")
 
 # Center the button using columns
 col1, col2, col3 = st.columns([1, 2, 1])
-
 with col2:
     process_clicked = st.button("🚀 Process Images", use_container_width=True)
 
@@ -575,44 +572,33 @@ if process_clicked:
                 cat_folder = key_to_category.get(key, "Uncategorized")
                 raw_cat_folder = os.path.join(raw_folder, cat_folder)
                 file_path = os.path.join(raw_cat_folder, file.name)
-
                 with open(file_path, "wb") as f:
                     f.write(file.read())
-
                 # Assign the raw paths so copy_and_rename_convert_images() can read them
                 uploaded_image_paths[key] = file_path
                 globals()[key] = file_path
 
         with st.status("⚙️ Processing images...", expanded=True) as status:
             progress_bar = st.progress(0)
-
             # Step 1: Create new presentation
-            #st.write("Initializing Presentation...")
             create_new_presentation()
             progress_bar.progress(20)
-
             # Step 2: Run full processing pipeline
             try:
-                #st.write("Cropping, resizing, and removing backgrounds...")
                 run_all_processing()
-
                 # --- POST-PROCESSING ORGANIZATION ---
-                #st.write("Finalizing folder organization...")
                 for f in os.listdir(folder_path):
                     if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff')):
                         base_name = f
                         if base_name.startswith('g_'):
                             base_name = base_name[2:]
                         base_name = os.path.splitext(base_name)[0]
-
                         cat_folder_name = key_to_category.get(base_name)
                         if cat_folder_name:
                             dest_folder = os.path.join(processed_folder, cat_folder_name)
                             shutil.move(os.path.join(folder_path, f), os.path.join(dest_folder, f))
-
                 progress_bar.progress(100)
                 status.update(label="Processing completed successfully!", state="complete", expanded=False)
-
             except Exception as e:
                 progress_bar.progress(0)
                 status.update(label=f"Error during processing: {str(e)}", state="error", expanded=True)
@@ -627,6 +613,10 @@ if process_clicked:
                     arcname = os.path.relpath(full_path, patient_folder)
                     zf.write(full_path, arcname=arcname)
         zip_buffer.seek(0)
+
+        # ✅ FIX #5: Free memory / clean up temp files after zipping.
+        del patient_folder
+        gc.collect()
 
         # Display the download button prominently
         col_dl1, col_dl2, col_dl3 = st.columns([1, 2, 1])
