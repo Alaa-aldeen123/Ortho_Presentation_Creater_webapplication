@@ -7,4 +7,4 @@ python-pptx==0.6.21
 ultralytics==8.0.108
 torch==2.0.1
 torchvision==0.15.2
-setuptools
+setuptools==69.5.1
