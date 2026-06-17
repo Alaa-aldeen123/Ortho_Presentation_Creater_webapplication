@@ -1,0 +1,9 @@
+[server]
+# Increases the limit of data sent via WebSocket (prevents upload crashes)
+maxMessageSize = 200
+
+# Bypasses the security token check that causes Axios 400 errors on slow connections
+enableXsrfProtection = false
+
+# Optional: Disable CORS if you still get connection drops
+enableCORS = false
