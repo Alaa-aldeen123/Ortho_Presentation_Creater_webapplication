@@ -1,9 +1,3 @@
 [server]
-# Increases the limit of data sent via WebSocket (prevents upload crashes)
+# Increases the allowed size for network packets (Safe for Streamlit Cloud)
 maxMessageSize = 200
-
-# Bypasses the security token check that causes Axios 400 errors on slow connections
-enableXsrfProtection = false
-
-# Optional: Disable CORS if you still get connection drops
-enableCORS = false
