@@ -1,4 +1,4 @@
-[server]
+
 # Increases the limit of data sent via WebSocket (prevents upload crashes)
 maxMessageSize = 200
 
