@@ -1,3 +1,0 @@
-[server]
-# Increases the allowed size for network packets (Safe for Streamlit Cloud)
-maxMessageSize = 200
