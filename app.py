@@ -40,7 +40,6 @@ folder_path = ""
 
 # -------------------------------------------------------------------
 # Processing Functions
-# [UNCHANGED LOGIC]
 
 def create_new_presentation():
     """Create a new presentation based on the stored template data."""
@@ -87,8 +86,11 @@ def remove_background(image_name):
 
 def crop_personal(image_name, left_padding=0.2, right_padding=0.2, above_padding=0.3, bottom_padding=0.1):
     """Crops personal images using face detection."""
-    face_detector_pb = r'D:\AI cours by Hasoob\Real_Projects\Ortho_Presentation_Creater_desktop\.venv\Lib\site-packages\cv2\data\opencv_face_detector_uint8.pb'
-    face_detector_pbtxt = r'D:\AI cours by Hasoob\Real_Projects\Ortho_Presentation_Creater_desktop\.venv\Lib\site-packages\cv2\data\opencv_face_detector.pbtxt'
+    
+    # --- ENHANCEMENT: CLOUD COMPATIBLE PATHS ---
+    # Moved away from the hardcoded D:\ drive. Make sure these two files are in your GitHub repo!
+    face_detector_pb = resource_path('opencv_face_detector_uint8.pb')
+    face_detector_pbtxt = resource_path('opencv_face_detector.pbtxt')
 
     net = cv2.dnn.readNetFromTensorflow(face_detector_pb, face_detector_pbtxt)
     image_path = os.path.join(folder_path, image_name)
@@ -559,17 +561,34 @@ if process_clicked:
             os.makedirs(os.path.join(raw_folder, folder_name), exist_ok=True)
             os.makedirs(os.path.join(processed_folder, folder_name), exist_ok=True)
 
-        # Save uploaded files to the new raw folders and map their paths
+        # --- ENHANCEMENT: OPTIMIZE IMAGES DURING UPLOAD LOOP ---
         for key, file in uploaded_files.items():
             if file is not None:
                 cat_folder = key_to_category.get(key, "Uncategorized")
                 raw_cat_folder = os.path.join(raw_folder, cat_folder)
-                file_path = os.path.join(raw_cat_folder, file.name)
+                
+                # Assign a standard JPG name
+                base_name = os.path.splitext(file.name)[0]
+                file_path = os.path.join(raw_cat_folder, f"{base_name}.jpg")
 
-                with open(file_path, "wb") as f:
-                    f.write(file.read())
+                # Open the stream using PIL to intercept the heavy file footprint
+                with Image.open(file) as img:
+                    # Strip massive color profiles and ensure compatibility
+                    if img.mode != "RGB":
+                        img = img.convert("RGB")
+                    
+                    # Downscale the clinical photo if it's too large to prevent RAM crash
+                    max_size = 1600
+                    if max(img.size) > max_size:
+                        img.thumbnail((max_size, max_size), Image.LANCZOS)
+                    
+                    # Save the optimized, lightweight version directly to storage
+                    img.save(file_path, format="JPEG", quality=85, optimize=True)
 
-                # Assign the raw paths so copy_and_rename_convert_images() can read them
+                # Clear the 7MB tracking pointer out of the server's RAM immediately
+                file.seek(0)
+
+                # Assign the paths so copy_and_rename_convert_images() can read them safely
                 uploaded_image_paths[key] = file_path
                 globals()[key] = file_path
 
@@ -577,17 +596,14 @@ if process_clicked:
             progress_bar = st.progress(0)
 
             # Step 1: Create new presentation
-            #st.write("Initializing Presentation...")
             create_new_presentation()
             progress_bar.progress(20)
 
             # Step 2: Run full processing pipeline
             try:
-                #st.write("Cropping, resizing, and removing backgrounds...")
                 run_all_processing()
 
                 # --- POST-PROCESSING ORGANIZATION ---
-                #st.write("Finalizing folder organization...")
                 for f in os.listdir(folder_path):
                     if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff')):
                         base_name = f
