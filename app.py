@@ -14,35 +14,29 @@ import torch
 
 # -------------------------------------------------------------------
 # Helper: resource_path()
-# Returns the absolute path to a resource whether running as a script
-# or as a bundled executable via PyInstaller.
 def resource_path(relative_path):
-    if getattr(sys, 'frozen', False):  # running in a bundle
+    if getattr(sys, 'frozen', False):  
         base_path = sys._MEIPASS
     else:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-
 # -------------------------------------------------------------------
-# Use resource_path to get the correct paths for the resource files
 pptx_resource = resource_path("main.pptx")
 model_resource = resource_path("best.pt")
 
-# Load the PPTX template into memory using the bundled resource.
 with open(pptx_resource, "rb") as file:
     pptx_data = file.read()
 
-# Global variables that the processing functions rely on.
 patient_name = ""
 folder_path = ""
 
 
 # -------------------------------------------------------------------
 # Processing Functions
+# -------------------------------------------------------------------
 
 def create_new_presentation():
-    """Create a new presentation based on the stored template data."""
     pp_name = os.path.splitext(patient_name.replace(' ', '_'))[0] + '.pptx'
     pptx_path_local = os.path.join(folder_path, pp_name)
     os.makedirs(folder_path, exist_ok=True)
@@ -50,15 +44,8 @@ def create_new_presentation():
         pptx_stream = io.BytesIO(pptx_data)
         new_presentation = Presentation(pptx_stream)
         new_presentation.save(pptx_path_local)
-    else:
-        pass
-
 
 def copy_and_rename_convert_images():
-    """
-    Copies and renames only the images in the uploaded_image_paths dictionary,
-    converting them to JPG.
-    """
     for var_name, image_path in uploaded_image_paths.items():
         if os.path.isfile(image_path) and image_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
             try:
@@ -69,9 +56,7 @@ def copy_and_rename_convert_images():
             except Exception as e:
                 st.write(f"Error processing {image_path}: {e}")
 
-
 def remove_background(image_name):
-    """Removes the background from an image and overwrites the file."""
     image_path = os.path.join(folder_path, image_name)
     if os.path.isfile(image_path) and image_name.lower().endswith(('.png', '.jpg', '.jpeg')):
         try:
@@ -83,12 +68,7 @@ def remove_background(image_name):
         except Exception as e:
             st.write(f"Error processing {image_name}: {e}")
 
-
 def crop_personal(image_name, left_padding=0.2, right_padding=0.2, above_padding=0.3, bottom_padding=0.1):
-    """Crops personal images using face detection."""
-    
-    # --- ENHANCEMENT: CLOUD COMPATIBLE PATHS ---
-    # Moved away from the hardcoded D:\ drive. Make sure these two files are in your GitHub repo!
     face_detector_pb = resource_path('opencv_face_detector_uint8.pb')
     face_detector_pbtxt = resource_path('opencv_face_detector.pbtxt')
 
@@ -124,9 +104,7 @@ def crop_personal(image_name, left_padding=0.2, right_padding=0.2, above_padding
     else:
         return image_path
 
-
 def crop_arch(image_name):
-    """Crops arch images using a YOLO model."""
     image_path = os.path.join(folder_path, image_name)
     model = YOLO(model_resource)
     image = cv2.imread(image_path)
@@ -138,12 +116,8 @@ def crop_arch(image_name):
         x1, y1, x2, y2 = map(int, results[0].boxes.xyxy[0])
         cropped_object = image[y1:y2, x1:x2]
         cv2.imwrite(image_path, cropped_object)
-    else:
-        pass
-
 
 def resize_image(image_name, max_width=None, max_height=None, file_prefix=''):
-    """Resizes an image to given dimensions and saves a new version with an optional prefix."""
     image_path = os.path.join(folder_path, image_name)
     img = Image.open(image_path)
     orig_width, orig_height = img.size
@@ -167,9 +141,7 @@ def resize_image(image_name, max_width=None, max_height=None, file_prefix=''):
     resized_img.save(temp_path)
     return new_file_name
 
-
 def insert_image(slide_index, image_name, left=None, bottom=None, right=None, top=None):
-    """Inserts an image into a slide of the PowerPoint presentation."""
     pptx_path_local = os.path.join(folder_path, os.path.splitext(patient_name.replace(' ', '_'))[0] + '.pptx')
     ppt = Presentation(pptx_path_local)
     slide = ppt.slides[slide_index]
@@ -209,9 +181,7 @@ def insert_image(slide_index, image_name, left=None, bottom=None, right=None, to
                              height=Inches(height_in_inches))
     ppt.save(pptx_path_local)
 
-
 def run_all_processing():
-    """Runs the complete processing pipeline."""
     copy_and_rename_convert_images()
 
     for img in ['pre_personal_front.jpg', 'pre_personal_smile.jpg', 'pre_personal_oblique.jpg',
@@ -407,15 +377,11 @@ def run_all_processing():
 
 st.set_page_config(page_title="Orthodontic Case Presentation", page_icon="🦷", layout="wide")
 
-# Custom CSS for Background Color, File Uploader modifications, and Buttons
 st.markdown("""
     <style>
-    /* Hide the "Limit 200MB per file" text natively injected by Streamlit */
     [data-testid="stFileUploadDropzone"] small {
         display: none !important;
     }
-
-    /* Styling for the Process button */
     div.stButton > button:first-child {
         background-color: #007BFF;
         color: white;
@@ -430,8 +396,6 @@ st.markdown("""
         background-color: #0056b3;
         border-color: #0056b3;
     }
-
-    /* Styling for the Download button */
     div.stDownloadButton > button:first-child {
         background-color: #28A745;
         color: white;
@@ -450,13 +414,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------------------------
-# Sidebar: Clinic Logo and Instructions
-
 with st.sidebar:
-    # Adding your specific clinic logo
     st.image("logo_colored_with_words.png", use_container_width=True)
-
     st.markdown("---")
     st.markdown("### 💡 Instructions")
     st.info(
@@ -467,9 +426,6 @@ with st.sidebar:
     )
     st.markdown("---")
     st.caption("Created by Alaa-Aldeen Aboarrijal 771558504")
-
-# -------------------------------------------------------------------
-# Main Title and Description
 
 st.markdown("<h1 style='text-align: center; color: #2C3E50;'>🦷 Orthodontic Case Presentation</h1>",
             unsafe_allow_html=True)
@@ -482,15 +438,6 @@ st.markdown(
 )
 st.markdown("---")
 
-
-# -------------------------------------------------------------------
-# Patient Details section moved out of sidebar
-st.markdown("### 📋 Patient Details")
-patient_name = st.text_input("Enter Patient's Name", placeholder="e.g., John Doe")
-st.markdown("<br>", unsafe_allow_html=True)  # Adding a bit of spacing
-
-# -------------------------------------------------------------------
-# Tabs for Image Uploads
 
 categories = {
     "Pre-Personal Images": ["pre_personal_front", "pre_personal_smile", "pre_personal_oblique", "pre_personal_profile"],
@@ -505,37 +452,37 @@ categories = {
 }
 
 uploaded_files = {}
-
-tab1, tab2 = st.tabs(["⏳ Pre-Treatment Images", "✨ Post-Treatment Images"])
-
-for cat, keys in categories.items():
-    # Determine the target tab based on the category name
-    target_tab = tab1 if "Pre" in cat else tab2
-
-    with target_tab:
-        with st.expander(f"📁 {cat}", expanded=False):
-            cols = st.columns(2)
-            for idx, key in enumerate(keys):
-                with cols[idx % 2]:
-                    # Make the label slightly prettier
-                    display_label = key.replace('_', ' ').replace('-', ' ').title()
-                    uploaded_files[key] = st.file_uploader(
-                        f"Upload {display_label} Image",
-                        key=key
-                    )
-
-# -------------------------------------------------------------------
-# Define a global dictionary to store image paths from uploaded files.
 uploaded_image_paths = {}
 
-st.markdown("---")
+# --- ENHANCEMENT: Wrap the entire UI in a form to prevent auto-reruns on every upload ---
+with st.form("ortho_form", clear_on_submit=False):
+    st.markdown("### 📋 Patient Details")
+    patient_name = st.text_input("Enter Patient's Name", placeholder="e.g., John Doe")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-# Center the button using columns
-col1, col2, col3 = st.columns([1, 2, 1])
+    tab1, tab2 = st.tabs(["⏳ Pre-Treatment Images", "✨ Post-Treatment Images"])
 
-with col2:
-    process_clicked = st.button("🚀 Process Images", use_container_width=True)
+    for cat, keys in categories.items():
+        target_tab = tab1 if "Pre" in cat else tab2
 
+        with target_tab:
+            with st.expander(f"📁 {cat}", expanded=False):
+                cols = st.columns(2)
+                for idx, key in enumerate(keys):
+                    with cols[idx % 2]:
+                        display_label = key.replace('_', ' ').replace('-', ' ').title()
+                        uploaded_files[key] = st.file_uploader(
+                            f"Upload {display_label} Image",
+                            key=key
+                        )
+
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        # Changed st.button to st.form_submit_button
+        process_clicked = st.form_submit_button("🚀 Process Images", use_container_width=True)
+
+# Process logic runs outside the form block after the button is clicked
 if process_clicked:
     if patient_name.strip() == "":
         st.error("⚠️ Please enter the patient's name in the Patient Details section before processing!")
@@ -543,13 +490,11 @@ if process_clicked:
         import shutil
         import zipfile
 
-        # --- ORGANIZE OUTPUT FOLDER LOGIC ---
         output_base = "output"
         patient_folder = os.path.join(output_base, patient_name)
         folder_path = patient_folder
         os.makedirs(folder_path, exist_ok=True)
 
-        # Create raw and processed folders
         raw_folder = os.path.join(patient_folder, "images", "raw_images")
         processed_folder = os.path.join(patient_folder, "images", "processed_images")
 
@@ -561,49 +506,37 @@ if process_clicked:
             os.makedirs(os.path.join(raw_folder, folder_name), exist_ok=True)
             os.makedirs(os.path.join(processed_folder, folder_name), exist_ok=True)
 
-        # --- ENHANCEMENT: OPTIMIZE IMAGES DURING UPLOAD LOOP ---
         for key, file in uploaded_files.items():
             if file is not None:
                 cat_folder = key_to_category.get(key, "Uncategorized")
                 raw_cat_folder = os.path.join(raw_folder, cat_folder)
                 
-                # Assign a standard JPG name
                 base_name = os.path.splitext(file.name)[0]
                 file_path = os.path.join(raw_cat_folder, f"{base_name}.jpg")
 
-                # Open the stream using PIL to intercept the heavy file footprint
                 with Image.open(file) as img:
-                    # Strip massive color profiles and ensure compatibility
                     if img.mode != "RGB":
                         img = img.convert("RGB")
                     
-                    # Downscale the clinical photo if it's too large to prevent RAM crash
                     max_size = 1600
                     if max(img.size) > max_size:
                         img.thumbnail((max_size, max_size), Image.LANCZOS)
                     
-                    # Save the optimized, lightweight version directly to storage
                     img.save(file_path, format="JPEG", quality=85, optimize=True)
 
-                # Clear the 7MB tracking pointer out of the server's RAM immediately
                 file.seek(0)
-
-                # Assign the paths so copy_and_rename_convert_images() can read them safely
                 uploaded_image_paths[key] = file_path
                 globals()[key] = file_path
 
         with st.status("⚙️ Processing images...", expanded=True) as status:
             progress_bar = st.progress(0)
 
-            # Step 1: Create new presentation
             create_new_presentation()
             progress_bar.progress(20)
 
-            # Step 2: Run full processing pipeline
             try:
                 run_all_processing()
 
-                # --- POST-PROCESSING ORGANIZATION ---
                 for f in os.listdir(folder_path):
                     if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff')):
                         base_name = f
@@ -623,7 +556,6 @@ if process_clicked:
                 progress_bar.progress(0)
                 status.update(label=f"Error during processing: {str(e)}", state="error", expanded=True)
 
-        # Step 3: Zip the output folder for download
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for root, dirs, files in os.walk(patient_folder):
@@ -633,7 +565,6 @@ if process_clicked:
                     zf.write(full_path, arcname=arcname)
         zip_buffer.seek(0)
 
-        # Display the download button prominently
         col_dl1, col_dl2, col_dl3 = st.columns([1, 2, 1])
         with col_dl2:
             st.download_button("📥 Download Processed File", data=zip_buffer,
